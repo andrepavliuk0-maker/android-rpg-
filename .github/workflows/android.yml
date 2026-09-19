@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-24.04
 
     steps:
-      - name: Checkout
+      - name: Checkout project
         uses: actions/checkout@v4
 
       - name: Setup Java 17
@@ -29,20 +29,25 @@ jobs:
 
           yes | sdkmanager --licenses || true
 
-      - name: Verify Android SDK
+      - name: Verify Android environment
         run: |
           echo "ANDROID_HOME=$ANDROID_HOME"
           echo "JAVA_HOME=$JAVA_HOME"
+          java -version
           adb version
+          sdkmanager --list_installed
 
       - name: Download Godot 4.5.1
         run: |
           wget -q \
             https://github.com/godotengine/godot/releases/download/4.5.1-stable/Godot_v4.5.1-stable_linux.x86_64.zip
 
-          unzip -q Godot_v4.5.1-stable_linux.x86_64.zip
+          unzip -q \
+            Godot_v4.5.1-stable_linux.x86_64.zip
 
-          mv Godot_v4.5.1-stable_linux.x86_64 godot
+          mv \
+            Godot_v4.5.1-stable_linux.x86_64 \
+            godot
 
           chmod +x godot
 
@@ -77,7 +82,21 @@ jobs:
           export/android/java_sdk_path = "$JAVA_HOME"
           EOF
 
-      - name: Import project
+      - name: Verify Godot project
+        run: |
+          test -f project.godot
+          test -f Main.tscn
+          test -f Player.gd
+          test -f export_presets.cfg
+
+          echo "Project files:"
+          ls -la
+
+          echo ""
+          echo "Export presets:"
+          cat export_presets.cfg
+
+      - name: Import Godot project
         run: |
           ./godot \
             --headless \
@@ -86,15 +105,16 @@ jobs:
             --import \
             --quit
 
-      - name: Create preset and build APK
+      - name: Build Android APK
         run: |
           mkdir -p build
 
           ./godot \
             --headless \
             --path . \
-            --editor \
-            --script res://create_android_preset.gd
+            --export-debug \
+            "Android" \
+            build/MageRPG.apk
 
       - name: Verify APK
         run: |
@@ -103,7 +123,10 @@ jobs:
             exit 1
           fi
 
-          echo "APK successfully created:"
+          echo "========================================"
+          echo "APK successfully created!"
+          echo "========================================"
+
           ls -lh build/MageRPG.apk
 
       - name: Upload APK
@@ -111,3 +134,4 @@ jobs:
         with:
           name: MageRPG-APK
           path: build/MageRPG.apk
+          if-no-files-found: error
