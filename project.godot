@@ -5,6 +5,7 @@ config_version=5
 [application]
 
 config/name="Mage RPG"
+config/icon="res://icon.svg"
 run/main_scene="res://Main.tscn"
 
 [display]
