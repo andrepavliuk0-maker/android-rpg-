@@ -5,13 +5,13 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Java
+      - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -22,37 +22,92 @@ jobs:
 
       - name: Install Android SDK
         run: |
-          yes | sdkmanager --licenses || true
-          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+          sdkmanager --install \
+            "platform-tools" \
+            "platforms;android-35" \
+            "build-tools;35.0.0"
 
-      - name: Download Godot
+          yes | sdkmanager --licenses || true
+
+      - name: Verify Android SDK
         run: |
-          wget -q https://github.com/godotengine/godot/releases/download/4.5.1-stable/Godot_v4.5.1-stable_linux.x86_64.zip
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          echo "JAVA_HOME=$JAVA_HOME"
+          adb version
+
+      - name: Download Godot 4.5.1
+        run: |
+          wget -q \
+            https://github.com/godotengine/godot/releases/download/4.5.1-stable/Godot_v4.5.1-stable_linux.x86_64.zip
+
           unzip -q Godot_v4.5.1-stable_linux.x86_64.zip
-          chmod +x Godot_v4.5.1-stable_linux.x86_64
+
           mv Godot_v4.5.1-stable_linux.x86_64 godot
 
-      - name: Install Godot templates
-        run: |
-          mkdir -p ~/.local/share/godot/export_templates/4.5.1.stable
-          wget -q https://github.com/godotengine/godot/releases/download/4.5.1-stable/Godot_v4.5.1-stable_export_templates.tpz
-          unzip -q Godot_v4.5.1-stable_export_templates.tpz -d /tmp/godot_templates
-          cp -r /tmp/godot_templates/templates/* ~/.local/share/godot/export_templates/4.5.1.stable/
+          chmod +x godot
 
-      - name: Configure Godot
+      - name: Install Godot export templates
+        run: |
+          mkdir -p \
+            ~/.local/share/godot/export_templates/4.5.1.stable
+
+          wget -q \
+            https://github.com/godotengine/godot/releases/download/4.5.1-stable/Godot_v4.5.1-stable_export_templates.tpz
+
+          mkdir -p /tmp/godot_templates
+
+          unzip -q \
+            Godot_v4.5.1-stable_export_templates.tpz \
+            -d /tmp/godot_templates
+
+          cp -r \
+            /tmp/godot_templates/templates/* \
+            ~/.local/share/godot/export_templates/4.5.1.stable/
+
+      - name: Configure Godot Android SDK
         run: |
           mkdir -p ~/.config/godot
+
           cat > ~/.config/godot/editor_settings-4.tres <<EOF
           [gd_resource type="EditorSettings" format=3]
 
           [resource]
+
           export/android/android_sdk_path = "$ANDROID_HOME"
           export/android/java_sdk_path = "$JAVA_HOME"
           EOF
 
-      - name: Diagnose Android export
+      - name: Import project
+        run: |
+          ./godot \
+            --headless \
+            --path . \
+            --editor \
+            --import \
+            --quit
+
+      - name: Create preset and build APK
         run: |
           mkdir -p build
-          ./godot --headless --path . --editor --quit
-          ./godot --headless --path . --export-debug "Android" build/MageRPG.apk 2>&1 | tee godot-export.log
-          exit 1
+
+          ./godot \
+            --headless \
+            --path . \
+            --editor \
+            --script res://create_android_preset.gd
+
+      - name: Verify APK
+        run: |
+          if [ ! -f "build/MageRPG.apk" ]; then
+            echo "ERROR: APK was not created."
+            exit 1
+          fi
+
+          echo "APK successfully created:"
+          ls -lh build/MageRPG.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: MageRPG-APK
+          path: build/MageRPG.apk
