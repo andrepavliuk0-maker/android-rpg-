@@ -8,8 +8,10 @@ jobs:
     runs-on: ubuntu-24.04
 
     steps:
+
       - name: Checkout project
         uses: actions/checkout@v4
+
 
       - name: Setup Java 17
         uses: actions/setup-java@v4
@@ -17,8 +19,10 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+
       - name: Setup Android SDK
         uses: android-actions/setup-android@v4
+
 
       - name: Install Android SDK
         run: |
@@ -29,13 +33,15 @@ jobs:
 
           yes | sdkmanager --licenses || true
 
-      - name: Verify Android SDK
+
+      - name: Verify Android environment
         run: |
           echo "ANDROID_HOME=$ANDROID_HOME"
           echo "JAVA_HOME=$JAVA_HOME"
 
           java -version
           adb version
+
 
       - name: Download Godot 4.5.1
         run: |
@@ -50,6 +56,7 @@ jobs:
             godot
 
           chmod +x godot
+
 
       - name: Install Godot export templates
         run: |
@@ -69,6 +76,7 @@ jobs:
             /tmp/godot_templates/templates/* \
             ~/.local/share/godot/export_templates/4.5.1.stable/
 
+
       - name: Configure Godot Android SDK
         run: |
           mkdir -p ~/.config/godot
@@ -82,9 +90,12 @@ jobs:
           export/android/java_sdk_path = "$JAVA_HOME"
           EOF
 
+
       - name: Create Android debug keystore
         run: |
           mkdir -p "$HOME/.android"
+
+          rm -f "$HOME/.android/debug.keystore"
 
           keytool \
             -genkeypair \
@@ -98,21 +109,28 @@ jobs:
             -validity 10000 \
             -dname "CN=Android Debug,O=Android,C=US"
 
+          echo ""
+          echo "Debug keystore created:"
           ls -lh "$HOME/.android/debug.keystore"
 
-      - name: Verify project files
+
+      - name: Verify project
         run: |
+          echo "===== PROJECT FILES ====="
+
           test -f project.godot
           test -f Main.tscn
           test -f Player.gd
+          test -f icon.svg
           test -f export_presets.cfg
 
-          echo "Project files:"
           ls -la
 
           echo ""
-          echo "Android preset:"
-          cat export_presets.cfg
+          echo "===== GODOT VERSION ====="
+
+          ./godot --version
+
 
       - name: Import Godot project
         run: |
@@ -123,11 +141,8 @@ jobs:
             --import \
             --quit
 
+
       - name: Build Android APK
-        env:
-          GODOT_ANDROID_KEYSTORE_DEBUG_PATH: ${{ env.HOME }}/.android/debug.keystore
-          GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
-          GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
         run: |
           mkdir -p build
 
@@ -137,6 +152,7 @@ jobs:
             --export-debug \
             "Android" \
             build/MageRPG.apk
+
 
       - name: Verify APK
         run: |
@@ -151,6 +167,7 @@ jobs:
           echo "========================================"
 
           ls -lh build/MageRPG.apk
+
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
