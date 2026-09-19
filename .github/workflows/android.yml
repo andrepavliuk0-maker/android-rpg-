@@ -29,13 +29,13 @@ jobs:
 
           yes | sdkmanager --licenses || true
 
-      - name: Verify Android environment
+      - name: Verify Android SDK
         run: |
           echo "ANDROID_HOME=$ANDROID_HOME"
           echo "JAVA_HOME=$JAVA_HOME"
+
           java -version
           adb version
-          sdkmanager --list_installed
 
       - name: Download Godot 4.5.1
         run: |
@@ -82,7 +82,25 @@ jobs:
           export/android/java_sdk_path = "$JAVA_HOME"
           EOF
 
-      - name: Verify Godot project
+      - name: Create Android debug keystore
+        run: |
+          mkdir -p "$HOME/.android"
+
+          keytool \
+            -genkeypair \
+            -v \
+            -keystore "$HOME/.android/debug.keystore" \
+            -storepass android \
+            -alias androiddebugkey \
+            -keypass android \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -dname "CN=Android Debug,O=Android,C=US"
+
+          ls -lh "$HOME/.android/debug.keystore"
+
+      - name: Verify project files
         run: |
           test -f project.godot
           test -f Main.tscn
@@ -93,7 +111,7 @@ jobs:
           ls -la
 
           echo ""
-          echo "Export presets:"
+          echo "Android preset:"
           cat export_presets.cfg
 
       - name: Import Godot project
@@ -106,6 +124,10 @@ jobs:
             --quit
 
       - name: Build Android APK
+        env:
+          GODOT_ANDROID_KEYSTORE_DEBUG_PATH: ${{ env.HOME }}/.android/debug.keystore
+          GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
+          GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
         run: |
           mkdir -p build
 
@@ -123,8 +145,9 @@ jobs:
             exit 1
           fi
 
+          echo ""
           echo "========================================"
-          echo "APK successfully created!"
+          echo "Mage RPG APK successfully created!"
           echo "========================================"
 
           ls -lh build/MageRPG.apk
