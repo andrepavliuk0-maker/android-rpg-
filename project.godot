@@ -1,3 +1,7 @@
+; Mage RPG - Godot 4
+
+config_version=5
+
 [application]
 
 config/name="Mage RPG"
