@@ -1,1 +1,45 @@
+name: Build Mage RPG Android
 
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Godot
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.5.1
+
+      - name: Setup Android
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android tools
+        run: |
+          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+          yes | sdkmanager --licenses
+
+      - name: Install export templates
+        run: |
+          mkdir -p ~/.local/share/godot/export_templates/4.5.1.stable
+          wget -q https://github.com/godotengine/godot/releases/download/4.5.1-stable/Godot_v4.5.1-stable_export_templates.tpz
+          mkdir -p /tmp/templates
+          unzip -q Godot_v4.5.1-stable_export_templates.tpz -d /tmp/templates
+          cp -r /tmp/templates/templates/* ~/.local/share/godot/export_templates/4.5.1.stable/
+
+      - name: Build project
+        run: |
+          mkdir -p build
+          godot --headless --path . --editor --quit
+          godot --headless --path . --export-debug "Android" build/MageRPG.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: MageRPG-APK
+          path: build/MageRPG.apk
